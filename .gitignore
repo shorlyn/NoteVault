@@ -1,0 +1,75 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+*.iml
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Environment / local secrets
+.env
+.env.*
+!.env.example
+*.local
+appsettings.Local.json
+appsettings.*.Local.json
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# .NET
+**/bin/
+**/obj/
+TestResults/
+*.nupkg
+*.snupkg
+
+# Database / runtime data
+NoteVault.Api/data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Web
+**/node_modules/
+notevault-web/dist/
+notevault-web/.vite/
+notevault-web/.vscode/
+
+# Flutter / Dart
+notevault_app/.dart_tool/
+notevault_app/.flutter-plugins
+notevault_app/.flutter-plugins-dependencies
+notevault_app/.pub-cache/
+notevault_app/.pub/
+notevault_app/build/
+notevault_app/coverage/
+notevault_app/android/local.properties
+notevault_app/android/key.properties
+notevault_app/android/app/debug/
+notevault_app/android/app/profile/
+notevault_app/android/app/release/
+notevault_app/ios/Pods/
+notevault_app/ios/.symlinks/
+notevault_app/ios/Flutter/Flutter.podspec
+notevault_app/ios/Flutter/Generated.xcconfig
+notevault_app/ios/Flutter/flutter_export_environment.sh
+notevault_app/ios/Flutter/ephemeral/
+notevault_app/ios/Runner/GeneratedPluginRegistrant.*
+
+# Mobile signing files
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
