@@ -62,6 +62,8 @@
           @toggle-fullscreen="fullscreen = !fullscreen"
           @restore="restoreCurrentNote"
           @delete="deleteCurrentNote"
+          @change-password="openPasswordDialog"
+          @logout="logout"
         />
 
         <DocHeader
@@ -184,7 +186,7 @@
           </div>
           <div>
             <h2>设置</h2>
-            <p>调整外观、新建偏好和账号操作</p>
+            <p>调整外观和新建偏好</p>
           </div>
         </header>
         <div class="settings-body">
@@ -231,11 +233,59 @@
           </section>
         </div>
         <footer class="action-modal-actions settings-actions">
-          <button class="action-cancel danger-text" type="button" @click="logout">
-            <LogOut :size="16" />
-            退出登录
-          </button>
           <button class="action-confirm" type="button" @click="settingsDialogVisible = false">完成</button>
+        </footer>
+      </section>
+    </div>
+    <div v-if="passwordDialogVisible" class="modal-layer" @mousedown.self="closePasswordDialog">
+      <section class="action-modal password-modal" @keydown.stop>
+        <button class="action-modal-close" type="button" @click="closePasswordDialog">
+          <X :size="24" />
+        </button>
+        <header class="action-modal-header">
+          <div class="action-modal-icon">
+            <KeyRound :size="24" />
+          </div>
+          <div>
+            <h2>修改密码</h2>
+            <p>更新当前账号密码，修改成功后继续保持登录</p>
+          </div>
+        </header>
+        <div class="password-body">
+          <section v-if="auth.mustChangePassword" class="settings-alert">
+            <ShieldCheck :size="18" />
+            <span>当前仍在使用初始密码，请先修改后再继续使用。</span>
+          </section>
+          <label class="settings-field">
+            <span>当前密码</span>
+            <div class="settings-input-shell">
+              <KeyRound :size="16" />
+              <input v-model="passwordForm.oldPassword" type="password" autocomplete="current-password" placeholder="输入当前密码" />
+            </div>
+          </label>
+          <label class="settings-field">
+            <span>新密码</span>
+            <div class="settings-input-shell">
+              <Lock :size="16" />
+              <input v-model="passwordForm.newPassword" type="password" autocomplete="new-password" placeholder="至少 6 位" />
+            </div>
+          </label>
+          <label class="settings-field">
+            <span>确认新密码</span>
+            <div class="settings-input-shell">
+              <Lock :size="16" />
+              <input v-model="passwordForm.confirmPassword" type="password" autocomplete="new-password" placeholder="再次输入新密码" />
+            </div>
+          </label>
+          <p class="password-hint">{{ passwordHint }}</p>
+        </div>
+        <footer class="action-modal-actions">
+          <button v-if="!auth.mustChangePassword" class="action-cancel" type="button" @click="closePasswordDialog">
+            取消
+          </button>
+          <button class="action-confirm" type="button" :disabled="changingPassword" @click="submitChangePassword">
+            {{ changingPassword ? '修改中...' : '修改密码' }}
+          </button>
         </footer>
       </section>
     </div>
@@ -352,9 +402,10 @@ import StarterKit from '@tiptap/starter-kit'
 import { useMessage } from 'naive-ui'
 import {
   FilePlus2,
+  KeyRound,
   Lock,
-  LogOut,
   Settings as SettingsIcon,
+  ShieldCheck,
   Tag as TagIcon,
   X,
 } from 'lucide-vue-next'
@@ -405,12 +456,15 @@ const tagDialogVisible = ref(false)
 const createTypeDialogVisible = ref(false)
 const convertDialogVisible = ref(false)
 const settingsDialogVisible = ref(false)
+const passwordDialogVisible = ref(false)
 const tagPickerVisible = ref(false)
 const folderPickerVisible = ref(false)
 const folderDialogVisible = ref(false)
 const folderDialogParentId = ref<string | null>(null)
 const folderName = ref('')
 const tagName = ref('')
+const changingPassword = ref(false)
+const passwordForm = ref({ oldPassword: '', newPassword: '', confirmPassword: '' })
 const tagNameInput = ref<HTMLInputElement | null>(null)
 const encryptPassword = ref('')
 const encryptPasswordInput = ref<HTMLInputElement | null>(null)
@@ -461,6 +515,12 @@ const wordCount = computed(() => plainContent.value.replace(/\s/g, '').length)
 const lineCount = computed(() => Math.max(1, plainContent.value.split('\n').length))
 const mdEditorClass = computed(() => showPreview.value ? 'vault-md-editor' : 'vault-md-editor no-preview')
 const mdEditorKey = computed(() => `${current.value?.id || 'empty'}-${current.value?.contentType || 'markdown'}-${showPreview.value ? 'preview' : 'edit'}`)
+const passwordHint = computed(() => {
+  if (!passwordForm.value.newPassword) return '新密码建议至少 8 位，并避免继续使用默认密码'
+  if (passwordForm.value.newPassword.length < 6) return '新密码至少需要 6 位'
+  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) return '两次输入的新密码不一致'
+  return '密码校验通过，可以提交'
+})
 
 watch(() => current.value?.contentType, () => {
   if (current.value?.contentType === 'html') editor.value?.commands.setContent(plainContent.value || '<p></p>')
@@ -469,6 +529,7 @@ watch(() => current.value?.contentType, () => {
 onMounted(async () => {
   await loadInitialData()
   await openFirstNote()
+  if (auth.mustChangePassword) passwordDialogVisible.value = true
   window.addEventListener('keydown', onKey)
 })
 onUnmounted(() => {
@@ -826,6 +887,43 @@ function logout() {
   router.push('/login')
 }
 
+function openPasswordDialog() {
+  passwordDialogVisible.value = true
+}
+
+function closePasswordDialog() {
+  if (auth.mustChangePassword) {
+    message.warning('请先修改初始密码')
+    return
+  }
+  passwordDialogVisible.value = false
+  resetPasswordForm()
+}
+
+function resetPasswordForm() {
+  passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
+}
+
+async function submitChangePassword() {
+  const { oldPassword, newPassword, confirmPassword } = passwordForm.value
+  if (!oldPassword) return message.warning('请输入当前密码')
+  if (newPassword.length < 6) return message.warning('新密码至少需要 6 位')
+  if (newPassword !== confirmPassword) return message.warning('两次输入的新密码不一致')
+  if (oldPassword === newPassword) return message.warning('新密码不能和当前密码相同')
+
+  changingPassword.value = true
+  try {
+    await auth.changePassword(oldPassword, newPassword)
+    resetPasswordForm()
+    passwordDialogVisible.value = false
+    message.success('密码已修改')
+  } catch {
+    message.error('修改失败，请检查当前密码')
+  } finally {
+    changingPassword.value = false
+  }
+}
+
 function formatDateTime(value?: string | null) {
   if (!value) return ''
   const date = parseApiDate(value)
@@ -1044,6 +1142,10 @@ button {
   width: min(560px, calc(100vw - 32px));
 }
 
+.password-modal {
+  width: min(480px, calc(100vw - 32px));
+}
+
 .action-modal-close {
   position: absolute;
   top: 18px;
@@ -1245,6 +1347,29 @@ button {
   padding: 0 28px 28px;
 }
 
+.password-body {
+  display: grid;
+  gap: 14px;
+  padding: 0 28px 28px;
+}
+
+.settings-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--nv-primary, #635bff) 28%, #e5e7eb);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--nv-primary, #635bff) 10%, #fff);
+  color: var(--nv-primary, #4f46e5);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.settings-alert svg {
+  flex: 0 0 auto;
+}
+
 .settings-section {
   display: flex;
   align-items: center;
@@ -1281,6 +1406,62 @@ button {
   gap: 8px;
 }
 
+.settings-field {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-field > span {
+  margin: 0;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.settings-input-shell {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.settings-input-shell:focus-within {
+  border-color: var(--nv-primary, #635bff);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nv-primary, #635bff) 10%, transparent);
+}
+
+.settings-input-shell svg {
+  flex: 0 0 auto;
+  color: #9ca3af;
+}
+
+.settings-input-shell input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-input-shell input::placeholder {
+  color: #9ca3af;
+}
+
+.password-hint {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .settings-options button,
 .switch-button {
   min-height: 34px;
@@ -1309,6 +1490,18 @@ button {
   border-color: var(--nv-primary-border, #bdb7ff);
   background: var(--nv-primary-soft, #eef0ff);
   color: var(--nv-primary, #4f46e5);
+}
+
+.switch-button.primary-action {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--nv-primary, #635bff), var(--nv-primary-2, #7c3aed));
+  color: #fff;
+}
+
+.switch-button:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .theme-swatch {
@@ -1455,6 +1648,7 @@ button {
 
 .workspace.is-dark .action-modal,
 .workspace.is-dark .action-input-shell,
+.workspace.is-dark .settings-input-shell,
 .workspace.is-dark .type-choice-grid button,
 .workspace.is-dark .settings-section,
 .workspace.is-dark .settings-options button,
@@ -1473,14 +1667,22 @@ button {
 .workspace.is-dark .action-modal h2,
 .workspace.is-dark .action-modal-label,
 .workspace.is-dark .action-input-shell input,
+.workspace.is-dark .settings-input-shell input,
 .workspace.is-dark .type-choice-grid strong,
 .workspace.is-dark .settings-section strong {
   color: #f8fafc;
 }
 
 .workspace.is-dark .action-modal-close,
-.workspace.is-dark .action-input-shell svg {
+.workspace.is-dark .action-input-shell svg,
+.workspace.is-dark .settings-input-shell svg {
   color: #cbd5e1;
+}
+
+.workspace.is-dark .settings-alert {
+  border-color: color-mix(in srgb, var(--nv-primary, #635bff) 42%, #303747);
+  background: color-mix(in srgb, var(--nv-primary, #635bff) 18%, #1a1f2b);
+  color: color-mix(in srgb, var(--nv-primary, #635bff) 45%, white);
 }
 
 .workspace.is-dark .action-modal-close:hover,

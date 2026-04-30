@@ -118,6 +118,8 @@ flutter run --dart-define=API_BASE=http://你的后端地址
 Web 端 API 地址可通过环境变量覆盖：
 
 ```bash
+# 生产环境同域 Nginx 反代 /api/ 时不用配置，默认使用 /
+# 本地开发直连后端时可配置：
 VITE_API_BASE_URL=http://localhost:5111
 ```
 
@@ -183,6 +185,7 @@ flutter run --dart-define=API_BASE=http://localhost:5111
 ## 部署提醒
 
 - 生产环境请启用 HTTPS
+- 同域 Nginx 反代 `/api/` 时，前端打包不需要设置 `VITE_API_BASE_URL`
 - 替换默认管理员密码
 - 使用足够强的 JWT Secret
 - 不要把七牛云密钥提交到公开仓库

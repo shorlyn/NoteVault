@@ -1,7 +1,5 @@
 <template>
   <main class="login-page">
-    <a class="page-pill" href="/login">登录页</a>
-
     <section class="intro-panel">
       <div class="logo-card">N</div>
       <h1>NoteVault</h1>
@@ -42,12 +40,12 @@
         <label>
           <User :size="19" />
           <span>账号</span>
-          <input v-model="username" placeholder="admin" autocomplete="username" />
+          <input v-model="username" placeholder="请输入账号" autocomplete="username" />
         </label>
         <label>
           <LockKeyhole :size="19" />
           <span>密码</span>
-          <input v-model="password" type="password" placeholder="admin123" autocomplete="current-password" />
+          <input v-model="password" type="password" placeholder="请输入密码" autocomplete="current-password" />
         </label>
         <div class="form-row">
           <label class="remember">
@@ -57,10 +55,6 @@
           <button type="button">忘记密码?</button>
         </div>
         <button class="submit-button" :disabled="loading" type="submit">{{ loading ? '登录中...' : '登录' }}</button>
-        <div class="hint-row">
-          <Info :size="16" />
-          默认账号：admin / admin123（仅开发环境展示）
-        </div>
       </form>
     </section>
   </main>
@@ -70,20 +64,24 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
-import { FileText, Github, Info, LockKeyhole, PackageCheck, ShieldCheck, User } from 'lucide-vue-next'
+import { FileText, Github, LockKeyhole, PackageCheck, ShieldCheck, User } from 'lucide-vue-next'
 import { useAuthStore } from '../stores/auth'
 
-const username = ref('admin')
-const password = ref('admin123')
+const username = ref('')
+const password = ref('')
 const loading = ref(false)
 const auth = useAuthStore()
 const router = useRouter()
 const message = useMessage()
 
 async function submit() {
+  if (!username.value.trim() || !password.value) {
+    message.warning('请输入账号和密码')
+    return
+  }
   loading.value = true
   try {
-    await auth.login(username.value, password.value)
+    await auth.login(username.value.trim(), password.value)
     router.push('/')
   } catch {
     message.error('账号或密码不正确')
@@ -118,19 +116,6 @@ async function submit() {
     radial-gradient(circle at 50% 0, transparent 0 270px, rgba(99, 86, 242, 0.10) 271px 286px, transparent 287px);
   opacity: 0.75;
   pointer-events: none;
-}
-
-.page-pill {
-  position: absolute;
-  left: 18px;
-  top: 18px;
-  z-index: 1;
-  padding: 8px 15px;
-  border-radius: 7px;
-  color: #fff;
-  background: linear-gradient(135deg, #6261e8, #7555f1);
-  font-weight: 700;
-  text-decoration: none;
 }
 
 .intro-panel,
@@ -325,20 +310,6 @@ async function submit() {
   font-weight: 760;
 }
 
-.hint-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 12px;
-  color: #7b8494;
-  font-size: 13px;
-}
-
-.hint-row svg {
-  color: #5147f0;
-}
-
 @media (max-width: 980px) {
   .login-page {
     grid-template-columns: 1fr;
@@ -370,11 +341,6 @@ async function submit() {
 
 .login-page::before {
   display: none;
-}
-
-.page-pill {
-  border-radius: 10px;
-  background: linear-gradient(135deg, #635bff, #7c3aed);
 }
 
 .intro-panel {
@@ -508,16 +474,6 @@ async function submit() {
 .submit-button:hover {
   transform: translateY(-1px);
   box-shadow: 0 12px 32px rgba(99, 91, 255, 0.28);
-}
-
-.hint-row {
-  justify-content: flex-start;
-  margin-top: 0;
-  padding: 12px;
-  border-radius: 12px;
-  background: #f7f8fc;
-  color: #6b7280;
-  font-size: 13px;
 }
 
 @media (max-width: 900px) {

@@ -20,7 +20,7 @@ npm run dev
 
 默认访问地址：`http://localhost:5173`
 
-默认 API 地址：`http://localhost:5111`
+默认 API 地址：`/`，生产环境会走同域 `/api/` 代理。
 
 如需覆盖 API 地址：
 

@@ -22,6 +22,11 @@ export const useAuthStore = defineStore('auth', {
     async login(username: string, password: string) {
       this.setSession(await authApi.login(username, password))
     },
+    async changePassword(oldPassword: string, newPassword: string) {
+      await authApi.changePassword(oldPassword, newPassword)
+      this.mustChangePassword = false
+      localStorage.setItem('nv_must_change', 'false')
+    },
     async refresh() {
       if (!this.refreshToken) return this.logout()
       this.setSession(await authApi.refresh(this.refreshToken))
@@ -29,9 +34,11 @@ export const useAuthStore = defineStore('auth', {
     logout() {
       this.accessToken = ''
       this.refreshToken = ''
+      this.mustChangePassword = false
       this.user = null
       localStorage.removeItem('nv_access')
       localStorage.removeItem('nv_refresh')
+      localStorage.removeItem('nv_must_change')
       localStorage.removeItem('nv_user')
     },
   },
