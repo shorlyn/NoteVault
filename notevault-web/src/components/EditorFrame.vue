@@ -1,6 +1,6 @@
 <template>
-  <div class="editor-frame" :class="{ 'is-dark': dark }">
-    <div v-if="contentType === 'html'" class="format-toolbar">
+  <div class="editor-frame" :class="{ 'is-dark': dark, 'is-reading': !editing }">
+    <div v-if="contentType === 'html' && editing" class="format-toolbar">
       <button type="button" title="加粗" @click="runRichCommand('bold')"><Bold :size="16" /></button>
       <button type="button" title="斜体" @click="runRichCommand('italic')"><Italic :size="16" /></button>
       <button type="button" title="删除线" @click="runRichCommand('strike')"><Strikethrough :size="16" /></button>
@@ -18,19 +18,27 @@
     </div>
 
     <MdEditor
-      v-if="contentType === 'markdown'"
+      v-if="contentType === 'markdown' && editing"
       :key="mdEditorKey"
-      :model-value="content"
+      :model-value="normalizedMarkdown"
       :class="mdEditorClass"
       language="zh-CN"
       :theme="dark ? 'dark' : 'light'"
       :preview-theme="'default'"
       :preview="showPreview"
       :style="{ height: 'calc(100vh - 286px)' }"
-      @update:model-value="$emit('update:content', $event)"
-      @on-change="$emit('queueSave')"
+      @update:model-value="onMarkdownUpdate"
+      @on-change="onMarkdownChange"
       @on-upload-img="onUploadImages"
     />
+    <div v-else-if="contentType === 'markdown'" class="markdown-reader">
+      <MdPreview
+        :id="`note-preview-${mdEditorKey}`"
+        :model-value="normalizedMarkdown"
+        :theme="dark ? 'dark' : 'light'"
+        :preview-theme="'default'"
+      />
+    </div>
     <editor-content v-else :editor="editor" class="rich-editor" />
 
     <footer class="editor-footer">
@@ -42,9 +50,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { EditorContent } from '@tiptap/vue-3'
 import type { Editor } from '@tiptap/vue-3'
-import { MdEditor } from 'md-editor-v3'
+import { MdEditor, MdPreview } from 'md-editor-v3'
 import {
   Bold,
   ChevronDown,
@@ -66,6 +75,7 @@ const props = defineProps<{
   editor?: Editor
   dark: boolean
   showPreview: boolean
+  editing: boolean
   mdEditorKey: string
   mdEditorClass: string
   wordCount: number
@@ -78,8 +88,24 @@ const emit = defineEmits<{
   uploadImages: [files: File[], callback: (urls: string[]) => void]
 }>()
 
+const normalizedMarkdown = computed(() => isEditorPlaceholderContent(props.content) ? '' : props.content)
+
 function onUploadImages(files: File[], callback: (urls: string[]) => void) {
   emit('uploadImages', files, callback)
+}
+
+function onMarkdownUpdate(value: string) {
+  if (!props.editing) return
+  emit('update:content', value)
+}
+
+function onMarkdownChange() {
+  if (!props.editing) return
+  emit('queueSave')
+}
+
+function isEditorPlaceholderContent(value: string) {
+  return ['', '<p></p>', '<p><br></p>', '<p><br /></p>'].includes(value.trim())
 }
 
 function runRichCommand(command: 'bold' | 'italic' | 'strike' | 'code' | 'quote' | 'h1' | 'h2' | 'bulletList' | 'orderedList') {
@@ -168,6 +194,27 @@ function runRichCommand(command: 'bold' | 'italic' | 'strike' | 'code' | 'quote'
   padding: 24px;
 }
 
+.editor-frame.is-reading .rich-editor {
+  height: calc(100vh - 214px) !important;
+  min-height: calc(100vh - 214px);
+}
+
+.markdown-reader {
+  height: calc(100vh - 214px);
+  overflow: auto;
+  padding: 34px 44px;
+}
+
+.markdown-reader :deep(.md-editor-previewOnly) {
+  background: transparent;
+}
+
+.markdown-reader :deep(.md-editor-preview) {
+  color: #374151;
+  font-size: 15px;
+  line-height: 1.78;
+}
+
 .editor-footer {
   height: 34px;
   display: flex;
@@ -198,27 +245,146 @@ function runRichCommand(command: 'bold' | 'italic' | 'strike' | 'code' | 'quote'
 }
 
 :deep(.md-editor-preview-wrapper) {
-  padding: 32px;
+  padding: 34px 42px;
 }
 
 :deep(.md-editor-preview h1) {
-  margin-bottom: 16px;
+  margin: 0 0 18px;
   color: #111827;
-  font-size: 28px;
+  font-size: 24px;
+  line-height: 1.32;
   font-weight: 800;
 }
 
 :deep(.md-editor-preview) {
   color: #374151;
   font-size: 15px;
-  line-height: 1.8;
+  line-height: 1.78;
+  letter-spacing: 0;
+}
+
+:deep(.md-editor-preview h2) {
+  margin: 28px 0 14px;
+  color: #111827;
+  font-size: 20px;
+  line-height: 1.35;
+  font-weight: 750;
+}
+
+:deep(.md-editor-preview h3) {
+  margin: 22px 0 10px;
+  color: #1f2937;
+  font-size: 17px;
+  line-height: 1.4;
+  font-weight: 750;
+}
+
+:deep(.md-editor-preview h4),
+:deep(.md-editor-preview h5),
+:deep(.md-editor-preview h6) {
+  margin: 18px 0 8px;
+  color: #374151;
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 700;
+}
+
+:deep(.md-editor-preview p) {
+  margin: 0 0 13px;
+}
+
+:deep(.md-editor-preview strong) {
+  color: #111827;
+  font-weight: 750;
+}
+
+:deep(.md-editor-preview em) {
+  color: #4b5563;
+}
+
+:deep(.md-editor-preview a) {
+  color: var(--nv-primary, #635bff);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--nv-primary, #635bff) 35%, transparent);
+}
+
+:deep(.md-editor-preview ol),
+:deep(.md-editor-preview ul) {
+  margin: 10px 0 16px 0;
+  padding-left: 1.35em;
+}
+
+:deep(.md-editor-preview ol) {
+  list-style: decimal;
+}
+
+:deep(.md-editor-preview ul) {
+  list-style: disc;
+}
+
+:deep(.md-editor-preview li) {
+  display: list-item;
+  margin: 6px 0;
+  padding-left: 0.15em;
+}
+
+:deep(.md-editor-preview li::marker) {
+  color: #8b92a1;
+  font-size: 0.95em;
+}
+
+:deep(.md-editor-preview blockquote) {
+  margin: 18px 0;
+  padding: 12px 16px;
+  border-left: 3px solid color-mix(in srgb, var(--nv-primary, #635bff) 42%, #9ca3af);
+  border-radius: 0 8px 8px 0;
+  background: #f7f8fc;
+  color: #4b5563;
+}
+
+:deep(.md-editor-preview blockquote p) {
+  margin: 0;
 }
 
 :deep(.md-editor-preview pre) {
-  padding: 16px;
-  border-radius: 12px;
+  margin: 16px 0;
+  padding: 14px 16px;
+  border-radius: 10px;
   background: #111827;
   color: #e5e7eb;
+}
+
+:deep(.md-editor-preview code:not(pre code)) {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #f1f3f7;
+  color: #374151;
+  font-size: 0.92em;
+}
+
+:deep(.md-editor-preview hr) {
+  margin: 24px 0;
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+:deep(.md-editor-preview table) {
+  width: 100%;
+  margin: 16px 0;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+:deep(.md-editor-preview th),
+:deep(.md-editor-preview td) {
+  padding: 9px 10px;
+  border: 1px solid #e5e7eb;
+}
+
+:deep(.md-editor-preview th) {
+  background: #f7f8fc;
+  color: #111827;
+  font-weight: 700;
 }
 
 .editor-frame.is-dark {
@@ -242,6 +408,7 @@ function runRichCommand(command: 'bold' | 'italic' | 'strike' | 'code' | 'quote'
 }
 
 .editor-frame.is-dark .rich-editor,
+.editor-frame.is-dark .markdown-reader,
 .editor-frame.is-dark :deep(.md-editor),
 .editor-frame.is-dark :deep(.md-editor-content),
 .editor-frame.is-dark :deep(.md-editor-input),
@@ -271,5 +438,41 @@ function runRichCommand(command: 'bold' | 'italic' | 'strike' | 'code' | 'quote'
 .editor-frame.is-dark :deep(.md-editor-preview pre) {
   background: #0b1020 !important;
   color: #e5e7eb !important;
+}
+
+.editor-frame.is-dark :deep(.md-editor-preview strong),
+.editor-frame.is-dark :deep(.md-editor-preview h1),
+.editor-frame.is-dark :deep(.md-editor-preview h2),
+.editor-frame.is-dark :deep(.md-editor-preview h3) {
+  color: #f8fafc !important;
+}
+
+.editor-frame.is-dark :deep(.md-editor-preview h4),
+.editor-frame.is-dark :deep(.md-editor-preview h5),
+.editor-frame.is-dark :deep(.md-editor-preview h6),
+.editor-frame.is-dark :deep(.md-editor-preview em) {
+  color: #cbd5e1 !important;
+}
+
+.editor-frame.is-dark :deep(.md-editor-preview blockquote) {
+  border-left-color: color-mix(in srgb, var(--nv-primary, #635bff) 48%, #94a3b8) !important;
+  background: #242b38 !important;
+  color: #cbd5e1 !important;
+}
+
+.editor-frame.is-dark :deep(.md-editor-preview code:not(pre code)) {
+  background: #242b38 !important;
+  color: #e5e7eb !important;
+}
+
+.editor-frame.is-dark :deep(.md-editor-preview hr),
+.editor-frame.is-dark :deep(.md-editor-preview th),
+.editor-frame.is-dark :deep(.md-editor-preview td) {
+  border-color: #303747 !important;
+}
+
+.editor-frame.is-dark :deep(.md-editor-preview th) {
+  background: #242b38 !important;
+  color: #f8fafc !important;
 }
 </style>

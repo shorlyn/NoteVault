@@ -54,9 +54,11 @@
           :save-state="saveState"
           :deleted="deleted"
           :is-pinned="current.isPinned"
+          :editing="editing"
           :username="currentUsername"
           :user-initial="userInitial"
           @save="saveNow"
+          @toggle-editing="toggleEditing"
           @toggle-pin="toggleCurrentPin"
           @encrypt="openEncryptDialog"
           @toggle-fullscreen="fullscreen = !fullscreen"
@@ -78,6 +80,7 @@
           :note-tags="current.tags"
           :content-type="current.contentType"
           :show-preview="showPreview"
+          :editing="editing"
           @update:title="queueSave"
           @set-folder="setCurrentFolder"
           @remove-tag="removeCurrentTag"
@@ -88,15 +91,17 @@
         />
 
         <EditorFrame
-          v-model:content="plainContent"
+          :content="plainContent"
           :content-type="current.contentType"
           :editor="editor || undefined"
           :dark="ui.dark"
           :show-preview="showPreview"
+          :editing="editing"
           :md-editor-key="mdEditorKey"
           :md-editor-class="mdEditorClass"
           :word-count="wordCount"
           :line-count="lineCount"
+          @update:content="onEditorContentUpdate"
           @queue-save="queueSave"
           @upload-images="uploadMarkdownImages"
         />
@@ -450,6 +455,7 @@ const loading = ref(false)
 const saveState = ref('已保存')
 const fullscreen = ref(false)
 const showPreview = ref(true)
+const editing = ref(false)
 const encryptDialog = ref(false)
 const decryptDialog = ref(false)
 const tagDialogVisible = ref(false)
@@ -472,13 +478,16 @@ const decryptPassword = ref('')
 const decryptPasswordInput = ref<HTMLInputElement | null>(null)
 const hardDeleteDialogVisible = ref(false)
 const hardDeleteTarget = ref<NoteList | null>(null)
+const suppressEditorInput = ref(false)
 let saveTimer: number | undefined
 let hardDeleteResolver: ((confirmed: boolean) => void) | null = null
 
 const editor = useEditor({
   extensions: [StarterKit],
   content: '',
+  editable: false,
   onUpdate: ({ editor }) => {
+    if (current.value?.contentType !== 'html') return
     plainContent.value = editor.getHTML()
     queueSave()
   },
@@ -524,6 +533,18 @@ const passwordHint = computed(() => {
 
 watch(() => current.value?.contentType, () => {
   if (current.value?.contentType === 'html') editor.value?.commands.setContent(plainContent.value || '<p></p>')
+})
+
+watch(editing, (value) => {
+  editor.value?.setEditable(value && !deleted.value && current.value?.contentType === 'html')
+  if (!value) {
+    tagPickerVisible.value = false
+    folderPickerVisible.value = false
+  }
+}, { immediate: true })
+
+watch(() => current.value?.contentType, (type) => {
+  editor.value?.setEditable(editing.value && !deleted.value && type === 'html')
 })
 
 onMounted(async () => {
@@ -644,7 +665,7 @@ function currentHasTag(id: string) {
   return !!current.value?.tags.some(tag => tag.id === id)
 }
 async function toggleCurrentTag(tag: Tag) {
-  if (!current.value) return
+  if (!current.value || !editing.value) return
   if (currentHasTag(tag.id)) {
     await removeCurrentTag(tag.id)
   } else {
@@ -653,12 +674,12 @@ async function toggleCurrentTag(tag: Tag) {
   }
 }
 async function removeCurrentTag(id: string) {
-  if (!current.value) return
+  if (!current.value || !editing.value) return
   current.value.tags = current.value.tags.filter(tag => tag.id !== id)
   await saveCurrentMeta()
 }
 async function setCurrentFolder(id: string) {
-  if (!current.value || (current.value.folderId || '') === id) {
+  if (!current.value || !editing.value || (current.value.folderId || '') === id) {
     folderPickerVisible.value = false
     return
   }
@@ -705,6 +726,7 @@ async function createNoteWithType(type: ContentType) {
   notes.value.unshift(note)
   await loadNoteCounts()
   await openNote(note.id)
+  editing.value = true
 }
 function requestConvertContentType() {
   if (!current.value) return
@@ -730,16 +752,20 @@ async function confirmConvertContentType() {
   message.success(`已转换为${nextType === 'markdown' ? 'Markdown' : '富文本'}文档`)
 }
 async function openNote(id: string) {
+  if (editing.value && saveState.value === '正在保存') {
+    await saveNow()
+  }
   const note = await notesApi.detail(id)
   await notesApi.open(id)
   current.value = note
+  editing.value = false
   saveState.value = '已保存'
   if (note.isEncrypted) {
     plainContent.value = ''
     decryptDialog.value = true
     nextTick(() => window.setTimeout(() => decryptPasswordInput.value?.focus(), 80))
   } else {
-    plainContent.value = note.content || ''
+    plainContent.value = note.contentType === 'markdown' && isEditorPlaceholderContent(note.content || '') ? '' : note.content || ''
     if (note.contentType === 'html') editor.value?.commands.setContent(plainContent.value || '<p></p>')
   }
 }
@@ -762,13 +788,23 @@ function closeDecryptDialog() {
   current.value = null
 }
 function queueSave() {
-  if (!current.value || current.value.isEncrypted) return
+  if (!current.value || current.value.isEncrypted || !editing.value || deleted.value || suppressEditorInput.value) return
   saveState.value = '正在保存'
   window.clearTimeout(saveTimer)
   saveTimer = window.setTimeout(saveNow, 800)
 }
+function onEditorContentUpdate(value: string) {
+  if (!current.value || !editing.value) return
+  if (suppressEditorInput.value && isEditorPlaceholderContent(value) && plainContent.value.trim()) return
+  plainContent.value = value
+}
+
+function isEditorPlaceholderContent(value: string) {
+  return ['', '<p></p>', '<p><br></p>', '<p><br /></p>'].includes(value.trim())
+}
 async function saveNow() {
-  if (!current.value) return
+  if (!current.value || current.value.isEncrypted || deleted.value) return
+  window.clearTimeout(saveTimer)
   try {
     current.value.content = plainContent.value
     const saved = await notesApi.update(current.value.id, { ...current.value, tagIds: current.value.tags.map(t => t.id) })
@@ -864,6 +900,27 @@ async function decryptCurrent() {
     return false
   }
 }
+
+async function toggleEditing() {
+  if (!current.value || deleted.value) return
+  if (current.value.isEncrypted && !plainContent.value) {
+    decryptDialog.value = true
+    await nextTick()
+    window.setTimeout(() => decryptPasswordInput.value?.focus(), 80)
+    return
+  }
+  if (editing.value) {
+    await saveNow()
+    editing.value = false
+    return
+  }
+  suppressEditorInput.value = true
+  editing.value = true
+  await nextTick()
+  window.setTimeout(() => {
+    suppressEditorInput.value = false
+  }, 250)
+}
 async function uploadMarkdownImages(files: File[], callback: (urls: string[]) => void) {
   const urls = await Promise.all(files.map(f => uploadApi.file(f, current.value?.id).then(x => x.fileUrl)))
   callback(urls)
@@ -875,7 +932,7 @@ function onKey(e: KeyboardEvent) {
   }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
     e.preventDefault()
-    saveNow()
+    if (editing.value) saveNow()
   }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
     e.preventDefault()

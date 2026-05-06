@@ -6,5 +6,11 @@ export default defineConfig({
   plugins: [vue(), UnoCSS()],
   server: {
     port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5111',
+        changeOrigin: true,
+      },
+    },
   },
 })

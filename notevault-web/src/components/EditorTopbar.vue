@@ -5,7 +5,19 @@
       <span v-else class="status-dot" />
       {{ saveState }}
     </div>
-    <button class="topbar-button" type="button" title="保存" @click="$emit('save')"><Undo2 :size="17" /></button>
+    <button
+      v-if="!deleted"
+      class="edit-mode-button"
+      :class="{ active: editing }"
+      type="button"
+      :title="editing ? '完成编辑' : '编辑笔记'"
+      @click="$emit('toggleEditing')"
+    >
+      <Check v-if="editing" :size="16" />
+      <Pencil v-else :size="16" />
+      {{ editing ? '完成' : '编辑' }}
+    </button>
+    <button v-if="editing" class="topbar-button" type="button" title="保存" @click="$emit('save')"><Save :size="17" /></button>
     <button class="topbar-button" type="button" title="重做"><Redo2 :size="17" /></button>
     <button
       v-if="!deleted"
@@ -63,19 +75,21 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Check, KeyRound, Lock, LogOut, Maximize2, Redo2, Star, Trash2, Undo2 } from 'lucide-vue-next'
+import { Check, KeyRound, Lock, LogOut, Maximize2, Pencil, Redo2, Save, Star, Trash2, Undo2 } from 'lucide-vue-next'
 
 defineProps<{
   dark: boolean
   saveState: string
   deleted: boolean
   isPinned: boolean
+  editing: boolean
   username: string
   userInitial: string
 }>()
 
 const emit = defineEmits<{
   save: []
+  toggleEditing: []
   togglePin: []
   encrypt: []
   toggleFullscreen: []
@@ -170,6 +184,35 @@ function selectAccountAction(action: 'changePassword' | 'logout') {
 .topbar-button.danger:hover {
   background: #fee2e2;
   color: #ef4444;
+}
+
+.edit-mode-button {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  color: #4b5563;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.edit-mode-button:hover {
+  background: #f3f4f6;
+  transform: translateY(-1px);
+}
+
+.edit-mode-button.active {
+  border-color: var(--nv-primary-border, #bdb7ff);
+  background: var(--nv-primary-soft, #eef0ff);
+  color: var(--nv-primary, #4f46e5);
 }
 
 .account-menu {
@@ -317,6 +360,22 @@ function selectAccountAction(action: 'changePassword' | 'logout') {
 
 .editor-topbar.is-dark .topbar-button:hover {
   background: #242b38 !important;
+}
+
+.editor-topbar.is-dark .edit-mode-button {
+  border-color: #303747 !important;
+  background: #1a1f2b !important;
+  color: #cbd5e1 !important;
+}
+
+.editor-topbar.is-dark .edit-mode-button:hover {
+  background: #242b38 !important;
+}
+
+.editor-topbar.is-dark .edit-mode-button.active {
+  border-color: color-mix(in srgb, var(--nv-primary, #635bff) 62%, white) !important;
+  background: color-mix(in srgb, var(--nv-primary, #635bff) 22%, transparent) !important;
+  color: color-mix(in srgb, var(--nv-primary, #635bff) 48%, white) !important;
 }
 
 .editor-topbar.is-dark .topbar-button.active {

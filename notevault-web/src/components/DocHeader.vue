@@ -1,13 +1,20 @@
 <template>
   <div class="doc-header" :class="{ 'is-dark': dark }">
-    <input :value="title" class="title-input" placeholder="随便记一个吧" @input="onTitleInput" />
+    <input
+      v-if="editing"
+      :value="title"
+      class="title-input"
+      placeholder="随便记一个吧"
+      @input="onTitleInput"
+    />
+    <h1 v-else class="title-display">{{ title || '未命名笔记' }}</h1>
     <div class="meta-row">
       <div class="meta-menu-wrap" ref="folderPickerRef">
-        <button class="meta-chip" type="button" @click.stop="toggleFolderPicker">
+        <button class="meta-chip" type="button" :disabled="!editing" @click.stop="toggleFolderPicker">
           <FolderIcon :size="14" />
           {{ currentFolderName }}
         </button>
-        <div v-if="folderPickerVisible" class="meta-picker" @click.stop>
+        <div v-if="editing && folderPickerVisible" class="meta-picker" @click.stop>
           <button
             v-for="folder in folderRows"
             :key="folder.id || 'root-folder'"
@@ -25,12 +32,12 @@
       <span v-for="tag in noteTags" :key="tag.id" class="meta-chip purple">
         <span class="tag-dot" />
         {{ tag.name }}
-        <button type="button" title="移除标签" @click="$emit('removeTag', tag.id)">
+        <button v-if="editing" type="button" title="移除标签" @click="$emit('removeTag', tag.id)">
           <X :size="12" />
         </button>
       </span>
 
-      <div class="meta-menu-wrap" ref="tagPickerRef">
+      <div v-if="editing" class="meta-menu-wrap" ref="tagPickerRef">
         <button class="meta-chip" type="button" @click.stop="toggleTagPicker">添加标签 +</button>
         <div v-if="tagPickerVisible" class="meta-picker tag-picker" @click.stop>
           <button
@@ -51,14 +58,14 @@
         </div>
       </div>
 
-      <span class="autosave-dot" />
-      <span class="autosave-text">自动保存中...</span>
+      <span v-if="editing" class="autosave-dot" />
+      <span v-if="editing" class="autosave-text">自动保存中...</span>
     </div>
 
     <div class="mode-row">
       <span class="type-badge">{{ contentType === 'markdown' ? 'Markdown 文档' : '富文本 文档' }}</span>
       <button
-        v-if="contentType === 'markdown'"
+        v-if="contentType === 'markdown' && editing"
         class="text-button"
         :class="{ active: showPreview }"
         type="button"
@@ -66,7 +73,7 @@
       >
         {{ showPreview ? '关闭预览' : '预览' }}
       </button>
-      <button class="text-button convert-button" type="button" @click="$emit('convertContentType')">
+      <button v-if="editing" class="text-button convert-button" type="button" @click="$emit('convertContentType')">
         转换为{{ contentType === 'markdown' ? '富文本' : 'Markdown' }}
       </button>
     </div>
@@ -89,6 +96,7 @@ const props = defineProps<{
   noteTags: Tag[]
   contentType: ContentType
   showPreview: boolean
+  editing: boolean
   folderPickerVisible: boolean
   tagPickerVisible: boolean
   dark: boolean
@@ -126,11 +134,13 @@ function currentHasTag(id: string) {
 }
 
 function toggleFolderPicker() {
+  if (!props.editing) return
   emit('update:folderPickerVisible', !props.folderPickerVisible)
   emit('update:tagPickerVisible', false)
 }
 
 function toggleTagPicker() {
+  if (!props.editing) return
   emit('update:tagPickerVisible', !props.tagPickerVisible)
   emit('update:folderPickerVisible', false)
 }
@@ -164,6 +174,16 @@ function onGlobalPointerDown(event: PointerEvent) {
   font-weight: 800;
 }
 
+.title-display {
+  min-height: 44px;
+  margin: 0;
+  color: #111827;
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 800;
+  word-break: break-word;
+}
+
 .meta-row,
 .mode-row {
   display: flex;
@@ -185,6 +205,10 @@ function onGlobalPointerDown(event: PointerEvent) {
   background: #f7f8fc;
   color: #6b7280;
   font-size: 14px;
+}
+
+.meta-chip:disabled {
+  cursor: default;
 }
 
 .meta-chip button {
@@ -349,7 +373,8 @@ function onGlobalPointerDown(event: PointerEvent) {
   background: #171a22 !important;
 }
 
-.doc-header.is-dark .title-input {
+.doc-header.is-dark .title-input,
+.doc-header.is-dark .title-display {
   color: #f8fafc !important;
 }
 

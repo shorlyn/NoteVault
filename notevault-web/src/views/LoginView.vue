@@ -24,13 +24,6 @@
         </div>
       </div>
 
-      <a class="github-link" href="https://github.com/shorlyn/NoteVault.git" target="_blank" rel="noreferrer">
-        <Github :size="24" />
-        <span>
-          <strong>GitHub</strong>
-          github.com/shorlyn/NoteVault
-        </span>
-      </a>
     </section>
 
     <section class="login-card">
@@ -57,6 +50,14 @@
         <button class="submit-button" :disabled="loading" type="submit">{{ loading ? '登录中...' : '登录' }}</button>
       </form>
     </section>
+
+    <a class="github-link" href="https://github.com/shorlyn/NoteVault.git" target="_blank" rel="noreferrer">
+      <Github :size="22" />
+      <span>
+        <strong>GitHub</strong>
+        github.com/shorlyn/NoteVault
+      </span>
+    </a>
   </main>
 </template>
 
@@ -326,12 +327,12 @@ async function submit() {
 .login-page {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 440px;
-  gap: 80px;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 82px;
   align-items: center;
-  max-width: 1180px;
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 48px;
+  padding: 48px 40px;
   background:
     radial-gradient(circle at 15% 20%, rgba(99, 91, 255, 0.18), transparent 32%),
     radial-gradient(circle at 85% 80%, rgba(139, 92, 246, 0.16), transparent 30%),
@@ -344,22 +345,22 @@ async function submit() {
 }
 
 .intro-panel {
-  max-width: 620px;
+  max-width: 560px;
 }
 
 .logo-card {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
+  width: 52px;
+  height: 52px;
+  border-radius: 13px;
   background: linear-gradient(135deg, #635bff, #8b5cf6);
   box-shadow: 0 12px 32px rgba(17, 24, 39, 0.08);
-  font-size: 30px;
+  font-size: 28px;
 }
 
 .intro-panel h1 {
-  margin: 24px 0 10px;
+  margin: 22px 0 10px;
   color: #111827;
-  font-size: 44px;
+  font-size: 42px;
   font-weight: 800;
 }
 
@@ -370,6 +371,7 @@ async function submit() {
 }
 
 .intro-panel p {
+  max-width: 520px;
   color: #6b7280;
   font-size: 15px;
   line-height: 1.8;
@@ -378,20 +380,22 @@ async function submit() {
 .feature-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
-  margin: 34px 0 44px;
+  margin: 32px 0 42px;
 }
 
 .feature-item {
-  padding: 16px;
-  border-radius: 16px;
+  min-height: 112px;
+  padding: 16px 14px;
+  border: 1px solid rgba(229, 231, 235, 0.72);
+  border-radius: 14px;
   background: #fff;
-  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.06);
+  box-shadow: 0 10px 28px rgba(17, 24, 39, 0.045);
 }
 
 .feature-item svg {
-  width: 40px;
-  height: 40px;
-  padding: 9px;
+  width: 36px;
+  height: 36px;
+  padding: 8px;
   border: 0;
   border-radius: 14px;
   color: #635bff;
@@ -408,6 +412,10 @@ async function submit() {
 }
 
 .github-link {
+  position: fixed;
+  left: 48px;
+  bottom: 42px;
+  z-index: 2;
   color: #111827;
   transition: color 0.18s ease;
 }
@@ -417,26 +425,32 @@ async function submit() {
 }
 
 .login-card {
-  width: 440px;
-  padding: 40px;
+  width: 420px;
+  padding: 42px 38px 36px;
   border: 1px solid rgba(255, 255, 255, 0.7);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 24px 60px rgba(17, 24, 39, 0.12);
-  backdrop-filter: blur(16px);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 44px rgba(17, 24, 39, 0.09);
+  backdrop-filter: blur(14px);
 }
 
 .login-card h3 {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 800;
 }
 
 .login-card > p {
+  margin: 10px 0 36px;
   color: #6b7280;
+  font-size: 14px;
+}
+
+.login-form {
+  gap: 18px;
 }
 
 .login-form label:not(.remember) {
-  height: 46px;
+  height: 52px;
   grid-template-columns: 22px 1fr;
   grid-template-rows: 1fr;
   padding: 0 14px;
@@ -463,8 +477,12 @@ async function submit() {
   font-size: 14px;
 }
 
+.form-row {
+  margin: 0 0 2px;
+}
+
 .submit-button {
-  height: 46px;
+  height: 52px;
   border-radius: 12px;
   background: linear-gradient(135deg, #635bff, #7c3aed);
   font-weight: 700;
@@ -485,6 +503,12 @@ async function submit() {
 
   .intro-panel {
     display: none;
+  }
+
+  .github-link {
+    position: relative;
+    left: auto;
+    bottom: auto;
   }
 }
 
